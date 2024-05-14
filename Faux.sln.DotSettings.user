@@ -1,0 +1,25 @@
+﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+	<s:String x:Key="/Default/CodeInspection/PencilsConfiguration/ActualSeverity/@EntryValue">INFO</s:String>
+	
+	
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=c1088ede_002D37fb_002D4adf_002D9b58_002D02d03d65a225/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="TestWith #5" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
+  &lt;TestAncestor&gt;
+    &lt;TestId&gt;NUnit3x::0E8E5CAF-5175-4269-BC69-951E6853A689::net8.0::Faux.Test.WithTests.TestWith&lt;/TestId&gt;
+    &lt;TestId&gt;NUnit3x::0E8E5CAF-5175-4269-BC69-951E6853A689::net8.0::Faux.Test.Collections.DynamicListsTests.TestStringList&lt;/TestId&gt;
+    &lt;TestId&gt;NUnit3x::0E8E5CAF-5175-4269-BC69-951E6853A689::net8.0::Faux.Test.Collections.DynamicListsTests.TestObjectList&lt;/TestId&gt;
+  &lt;/TestAncestor&gt;
+&lt;/SessionState&gt;</s:String>
+	
+	
+	
+	
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=cba84b7a_002Deb5e_002D4162_002Db897_002Db0f6d7a99ce7/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="TestWith" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
+  &lt;TestAncestor&gt;
+    &lt;TestId&gt;NUnit3x::0E8E5CAF-5175-4269-BC69-951E6853A689::net8.0::Faux.Test.WithTests.TestWith&lt;/TestId&gt;
+    &lt;TestId&gt;NUnit3x::0E8E5CAF-5175-4269-BC69-951E6853A689::net8.0::Faux.Test.WithTests.TestRandomDouble&lt;/TestId&gt;
+  &lt;/TestAncestor&gt;
+&lt;/SessionState&gt;</s:String>
+	
+	
+	
+	</wpf:ResourceDictionary>

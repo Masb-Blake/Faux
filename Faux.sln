@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Faux.Lib", "Faux.Lib\Faux.Lib.csproj", "{1CD6477F-FC97-48C3-8546-93519EA6D9FB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Faux.Test", "Faux.Test\Faux.Test.csproj", "{0E8E5CAF-5175-4269-BC69-951E6853A689}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1CD6477F-FC97-48C3-8546-93519EA6D9FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CD6477F-FC97-48C3-8546-93519EA6D9FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CD6477F-FC97-48C3-8546-93519EA6D9FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CD6477F-FC97-48C3-8546-93519EA6D9FB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0E8E5CAF-5175-4269-BC69-951E6853A689}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0E8E5CAF-5175-4269-BC69-951E6853A689}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0E8E5CAF-5175-4269-BC69-951E6853A689}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0E8E5CAF-5175-4269-BC69-951E6853A689}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
