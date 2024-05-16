@@ -1,60 +1,89 @@
 using System.Collections;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices.JavaScript;
 using Faux.Lib.Generators;
 using Faux.Lib.Models;
 
 namespace Faux.Lib;
 
-public class Faux<T>(T model) : IFaux
+public class Faux<T>(T model, FauxOptions? options = null) : IFaux
     where T : new()
 {
-    public T Model { get; private set; } = model;
-    private int _stringLength = 10;
+    private T Model { get; } = model;
+    private FauxOptions? _options = options ?? new FauxOptions();
     private readonly List<Withs> _withs = [];
-    private int _innerListAmount = 5;
+    private readonly List<Sets> _sets = [];
     
-    public Faux<T> StringLength(int length)
+    public Faux<T> With<TR>(Expression<Func<T, TR>> property, Delegate func, params object[] args)
     {
-        _stringLength = length;
-        return this;
-    }
-    
-    public Faux<T> With<R>(Expression<Func<T, R>> property, Delegate func, params object[] args)
-    {
-        var propertyInfo = ((MemberExpression)property.Body).Member as PropertyInfo;
+         ArgumentNullException.ThrowIfNull(nameof(property));
+         ArgumentNullException.ThrowIfNull(func);
+         
+         var propertyInfo = ((MemberExpression)property.Body).Member as PropertyInfo;
+         
+         ArgumentNullException.ThrowIfNull(propertyInfo);
+         ArgumentException.ThrowIfNullOrWhiteSpace(propertyInfo.Name);
+        
         _withs.Add(new Withs
         {
             PropertyName = propertyInfo.Name,
+            PropertyId = propertyInfo.MetadataToken,
             Function = func,
             Args = args
         });
         return this;
     }
+
+    public Faux<T> Set<TR>(Expression<Func<T, TR>> property, TR val)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+        ArgumentNullException.ThrowIfNull(val);
+        
+        var propertyInfo = ((MemberExpression)property.Body).Member as PropertyInfo;
+        
+        ArgumentNullException.ThrowIfNull(propertyInfo);
+        ArgumentException.ThrowIfNullOrWhiteSpace(propertyInfo.Name);
+        
+        _sets.Add(new Sets
+        {
+            PropertyName = propertyInfo.Name,
+            PropertyId = propertyInfo.MetadataToken,
+            Value = val
+        });
+        return this;
+    }
+    
     
     public TVal GenerateSingle<TVal>(TVal val) where TVal : new()
     {
-            var localModel = val.GetType().GetProperties().Length == 0 ? new  TVal() : val;
+            var localModel = val?.GetType().GetProperties().Length == 0 || val == null ? new  TVal() : val;
             var props = localModel.GetType().GetProperties();
             foreach (var prop in props)
             {
                 if (!prop.CanWrite) continue;
-                var withsVal = _withs.FirstOrDefault(v => v.PropertyName == prop.Name);
-                if (withsVal == null)
+                var setVal =
+                    _sets.FirstOrDefault(s => s.PropertyId == prop.MetadataToken && s.PropertyName == prop.Name);
+                if (setVal != null)
                 {
-                    GenerateRandomValues(localModel, prop);
+                    prop.SetValue(localModel, setVal.Value, null);
                 }
                 else
                 {
-                    var res = withsVal.Args.Length > 0
-                        ? withsVal.Function.DynamicInvoke(withsVal.Args)
-                        : withsVal.Function.DynamicInvoke();
-                    prop.SetValue(localModel, res, null);
+                    var withs = _withs.FirstOrDefault(v =>
+                        v.PropertyName == prop.Name && v.PropertyId == prop.MetadataToken);
+                    if (withs == null)
+                    {
+                        GenerateRandomValues(localModel, prop);
+                    }
+                    else
+                    {
+                        var res = withs.Args.Length > 0
+                            ? withs.Function.DynamicInvoke(withs.Args)
+                            : withs.Function.DynamicInvoke();
+                        prop.SetValue(localModel, res, null);
+                    }
                 }
             }
-
             return localModel;
     }
 
@@ -70,18 +99,18 @@ public class Faux<T>(T model) : IFaux
     }
 
 
-    private void GenerateRandomValues<T>(T model, PropertyInfo prop = null)
+    private void GenerateRandomValues<TVal>(TVal model, PropertyInfo prop)
     {
         var generated = GenerateFromType(prop.PropertyType);
         prop.SetValue(model, generated);
     }
 
-    private object GenerateFromType(Type type)
+    private object? GenerateFromType(Type type)
     {
         switch (Type.GetTypeCode(type))
         {
             case TypeCode.String:
-                return StringGenerator.Generate(_stringLength);
+                return StringGenerator.Generate(options!.StringLength);
             case TypeCode.Empty:
                 break;
             case TypeCode.Object:
@@ -89,11 +118,11 @@ public class Faux<T>(T model) : IFaux
                 {
                     var coll = Activator.CreateInstance(type);
                     var add = GetAddMethod(type, 2);
-                    var key = type.GetGenericArguments().FirstOrDefault(k => k != null);
+                    var key = type.GetGenericArguments().FirstOrDefault();
                     var val = type.GetGenericArguments()[1];
-                    if (key == null || val == null) return coll;
+                    if (key == null) return coll;
                     {
-                        for (var i = 0; i < _innerListAmount; i++)
+                        for (var i = 0; i < options!.InnerListLength; i++)
                         {
                             var k = GenerateFromType(key);
                             var v = GenerateFromType(val);
@@ -102,19 +131,20 @@ public class Faux<T>(T model) : IFaux
                     }
                     return coll;
                 }
-
+                
                 if (!typeof(IEnumerable).IsAssignableFrom(type)) return GenerateSingle(Activator.CreateInstance(type));
-            {
-                var coll = Activator.CreateInstance(type);
-                var add = GetAddMethod(type, 1);
-                var genType = type.GetGenericArguments().FirstOrDefault(v => v != null);
-                for (var i = 0; i < _innerListAmount; i++)
-                { 
-                    add.Invoke(coll, [GenerateFromType(genType)]);
-                }
+                {
+                    var coll = Activator.CreateInstance(type);
+                    var add = GetAddMethod(type, 1);
+                    var genType = type.GetGenericArguments().FirstOrDefault();
+                    for (var i = 0; i < options!.InnerListLength; i++)
+                    { 
+                        if(genType != null)
+                            add.Invoke(coll, [GenerateFromType(genType)]);
+                    }
 
-                return coll;
-            }
+                    return coll;
+                }
             case TypeCode.DBNull:
                 break;
             case TypeCode.Boolean:
@@ -130,7 +160,7 @@ public class Faux<T>(T model) : IFaux
             case TypeCode.UInt16:
                 return NumberGenerator.GenerateUShort();
             case TypeCode.Int32:
-                return NumberGenerator.GenerateInt();
+                return NumberGenerator.GenerateInt(options!.IntRange[0], options!.IntRange[1]);
             case TypeCode.UInt32:
                 return NumberGenerator.GenerateUInt();
             case TypeCode.Int64:
@@ -146,12 +176,34 @@ public class Faux<T>(T model) : IFaux
             case TypeCode.DateTime:
                 return DateTimeGenerator.Generate(DateTime.MinValue, DateTime.MaxValue);
             default:
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException($"Unknown type code of {Type.GetTypeCode(type)}");
         }
 
         return null;
     }
 
-    private MethodInfo GetAddMethod(Type type, int paramCount) => type.GetMethods()
-        .FirstOrDefault(n => n.Name == "Add" && n.GetParameters().Length == paramCount);
+    private static MethodInfo GetAddMethod(Type type, int paramCount)
+    {
+        var methods = type.GetMethods();
+        var name = type.Name[..type.Name.IndexOf('`')];
+        return name switch
+        {
+            "Queue" => GetMethod(methods, "Enqueue", paramCount),
+            "ConcurrentQueue" => GetMethod(methods, "Enqueue", paramCount),
+            "Stack" => GetMethod(methods, "Push", paramCount),
+            "ConcurrentStack" => GetMethod(methods, "Enqueue", paramCount),
+            _ => GetMethod(methods, "Add", paramCount)
+        };
+    }
+
+    private static MethodInfo GetMethod(MethodInfo[] methods, string method, int paramCount = 1)
+    {
+        ArgumentNullException.ThrowIfNull(methods);
+        ArgumentException.ThrowIfNullOrWhiteSpace(method);
+        
+        if (paramCount <= 0)
+            throw new InvalidOperationException(nameof(paramCount));
+        
+        return methods.FirstOrDefault(n => n.Name == method && n.GetParameters().Length == paramCount)!;
+    }
 }

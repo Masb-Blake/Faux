@@ -1,4 +1,6 @@
+using System.Collections;
 using Faux.Lib;
+using Helper = Faux.Test.Helpers.FauxHelper;
 
 namespace Faux.Test.Collections;
 
@@ -8,21 +10,63 @@ public class DynamicListsTests
     [Test]
     public void TestStringList()
     {
-        var sList = new StringList();
-        var faux = new Faux<StringList>(sList).GenerateMultiple();
-        var stringLists = faux as StringList[] ?? faux.ToArray();
-        Assert.AreEqual(stringLists.Length, 1);
-        Assert.AreEqual(stringLists.FirstOrDefault().List.Count, 5);
+        var faux = Helper.GenerateFaux<StringList>();
+        Assert.AreEqual(faux.Count(), 1);
+        Assert.AreEqual(faux.FirstOrDefault().List.Count, 5);
+
+        var checkType = faux.FirstOrDefault().List.FirstOrDefault();
+        Assert.AreEqual(checkType.GetType(), typeof(string));
     }
 
 
     [Test]
     public void TestObjectList()
     {
-        var oList = new ObjectList();
-        var faux = new Faux<ObjectList>(oList).GenerateMultiple();
-        var objectList = faux as ObjectList[] ?? faux.ToArray();
-        Assert.AreEqual(objectList.FirstOrDefault().List.Count, 5);
+        var faux = Helper.GenerateFaux<ObjectList>();
+        Assert.AreEqual(faux.FirstOrDefault().List.Count, 5);
+
+        var checkType = faux.FirstOrDefault().List.FirstOrDefault();
+        Assert.AreEqual(checkType.GetType(), typeof(MockObject));
+    }
+
+    [Test]
+    public void TestIntList()
+    {
+        var faux = Helper.GenerateFaux<IntList>();
+        Assert.AreEqual(faux.FirstOrDefault().List.Count, 5);
+
+        var checkType = faux.FirstOrDefault().List.FirstOrDefault();
+        Assert.AreEqual(checkType.GetType(), typeof(int));
+    }
+
+    [Test]
+    public void TestDecimalList()
+    {
+        var faux = Helper.GenerateFaux<DecimalList>();
+        Assert.AreEqual(faux.FirstOrDefault().List.Count, 5);
+
+        var checkType = faux.FirstOrDefault().List.FirstOrDefault();
+        Assert.AreEqual(checkType.GetType(), typeof(decimal));
+    }
+
+    [Test]
+    public void TestBoolList()
+    {
+        var faux = Helper.GenerateFaux<BoolList>();
+        Assert.AreEqual(faux.FirstOrDefault().List.Count, 5);
+
+        var checkType = faux.FirstOrDefault().List.FirstOrDefault();
+        Assert.AreEqual(checkType.GetType(), typeof(bool));
+    }
+
+    [Test]
+    public void TestDateTimeList()
+    {
+        var faux = Helper.GenerateFaux<DateList>();
+        Assert.AreEqual(faux.FirstOrDefault().List.Count, 5);
+
+        var checkType = faux.FirstOrDefault().List.FirstOrDefault();
+        Assert.AreEqual(checkType.GetType(), typeof(DateTime));
     }
 }
 

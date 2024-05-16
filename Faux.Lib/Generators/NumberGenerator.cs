@@ -22,9 +22,10 @@ public static class NumberGenerator
       return Convert.ToUInt16(Random(0, 65536));
    }
 
-   public static int GenerateInt()
+   public static int GenerateInt(int min = int.MinValue, int max = int.MaxValue)
    {
-      return Convert.ToInt32(Random(int.MinValue, int.MaxValue));
+      var vals = CheckValues(min, max);
+      return Convert.ToInt32(Random(vals[0], vals[1]));
    }
 
    public static uint GenerateUInt()
@@ -52,5 +53,15 @@ public static class NumberGenerator
    private static long Random(long start, long end)
    {
       return System.Random.Shared.NextInt64(start, end);
+   }
+
+   private static long[] CheckValues(ValueType min, ValueType max)
+   {
+      var convertedMin = Convert.ToInt64(min);
+      var convertedMax = Convert.ToInt64(max);
+      if (convertedMin <= convertedMax) return [convertedMin, convertedMax];
+      convertedMin = convertedMax;
+      convertedMax = Convert.ToInt64(min);
+      return [convertedMin, convertedMax];
    }
 }
