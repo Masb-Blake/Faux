@@ -2,24 +2,28 @@ namespace Faux.Lib.Generators;
 
 public static class NumberGenerator
 {
-   public static byte GenerateByte()
+   public static byte GenerateByte(byte min = byte.MinValue, byte max = byte.MaxValue)
    {
-      return Convert.ToByte(Random(byte.MinValue, byte.MinValue));
+      var vals = CheckValues(min, max);
+      return Convert.ToByte(Random(vals[0], vals[1]));
    }
 
-   public static sbyte GenerateSByte()
+   public static sbyte GenerateSByte(sbyte min = sbyte.MinValue, sbyte max = sbyte.MaxValue)
    {
-      return Convert.ToSByte(Random(sbyte.MinValue, sbyte.MaxValue));
+      var vals = CheckValues(min, max);
+      return Convert.ToSByte(Random(vals[0], vals[1]));
    }
    
-   public static short GenerateShort()
+   public static short GenerateShort(short min = short.MinValue, short max = short.MaxValue)
    {
-      return Convert.ToInt16(Random(short.MinValue, short.MaxValue));
+      var vals = CheckValues(min, max);
+      return Convert.ToInt16(Random(vals[0], vals[1]));
    }
 
-   public static ushort GenerateUShort()
+   public static ushort GenerateUShort(ushort min = ushort.MinValue, ushort max = ushort.MaxValue)
    {
-      return Convert.ToUInt16(Random(0, 65536));
+      var vals = CheckValues(min, max);
+      return Convert.ToUInt16(Random(vals[0], vals[1]));
    }
 
    public static int GenerateInt(int min = int.MinValue, int max = int.MaxValue)
@@ -28,14 +32,16 @@ public static class NumberGenerator
       return Convert.ToInt32(Random(vals[0], vals[1]));
    }
 
-   public static uint GenerateUInt()
+   public static uint GenerateUInt(uint min = uint.MinValue, uint max = uint.MaxValue)
    {
-      return Convert.ToUInt32(Random(uint.MinValue, uint.MaxValue));
+      var vals = CheckValues(min, max);
+      return Convert.ToUInt32(Random(vals[0], vals[1]));
    }
 
-   public static long GenerateLong()
+   public static long GenerateLong(long min = long.MinValue, long max = long.MaxValue)
    {
-      return Random(long.MinValue, long.MaxValue);
+      var vals = CheckValues(min, max);
+      return Random(vals[0], vals[1]);
    }
 
    public static double GenerateDouble(double start = double.MinValue, double end = double.MaxValue)

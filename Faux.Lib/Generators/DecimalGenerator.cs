@@ -2,9 +2,9 @@ namespace Faux.Lib.Generators;
 
 public static class DecimalGenerator
 {
-   public static decimal Generate()
+   public static decimal Generate(int maxScale = 29)
    {
-      var scale = (byte)Random.Shared.Next(29);
+      var scale = (byte)Random.Shared.Next(maxScale);
       var sign = Random.Shared.Next(2) == 1;
       return new decimal(NextInt(), NextInt(), NextInt(), sign, scale);
    }

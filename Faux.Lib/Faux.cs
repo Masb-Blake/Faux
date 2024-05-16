@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.Json;
+using Faux.Lib.Exceptions;
 using Faux.Lib.Generators;
 using Faux.Lib.Models;
 
@@ -10,12 +12,20 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
     where T : new()
 {
     private T Model { get; } = model;
-    private FauxOptions? _options = options ?? new FauxOptions();
+    private readonly FauxOptions? _options = options ?? new FauxOptions();
     private readonly List<Withs> _withs = [];
     private readonly List<Sets> _sets = [];
+    private readonly List<T> _generated = [];
+
+    private readonly JsonSerializerOptions _jsonSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    };
     
     public Faux<T> With<TR>(Expression<Func<T, TR>> property, Delegate func, params object[] args)
     {
+
          ArgumentNullException.ThrowIfNull(nameof(property));
          ArgumentNullException.ThrowIfNull(func);
          
@@ -23,15 +33,21 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
          
          ArgumentNullException.ThrowIfNull(propertyInfo);
          ArgumentException.ThrowIfNullOrWhiteSpace(propertyInfo.Name);
-        
-        _withs.Add(new Withs
-        {
-            PropertyName = propertyInfo.Name,
-            PropertyId = propertyInfo.MetadataToken,
-            Function = func,
-            Args = args
-        });
-        return this;
+
+         if (_sets.FirstOrDefault(v => v.PropertyName == propertyInfo.Name && v.PropertyId == propertyInfo.MetadataToken) != null)
+         {
+             throw new DuplicateStatementException(
+                 $"Cannot declare a with statement for property: {property.Name} due to it already being set");
+         }
+
+         _withs.Add(new Withs
+         {
+             PropertyName = propertyInfo.Name,
+             PropertyId = propertyInfo.MetadataToken,
+             Function = func,
+             Args = args
+         });
+         return this;
     }
 
     public Faux<T> Set<TR>(Expression<Func<T, TR>> property, TR val)
@@ -43,6 +59,13 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
         
         ArgumentNullException.ThrowIfNull(propertyInfo);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyInfo.Name);
+
+        if (_withs.FirstOrDefault(
+                v => v.PropertyName == propertyInfo.Name && v.PropertyId == propertyInfo.MetadataToken) != null)
+        {
+            throw new DuplicateStatementException(
+                             $"Cannot declare a with statement for property: {property.Name} due to it already being set");
+        }
         
         _sets.Add(new Sets
         {
@@ -87,16 +110,25 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
             return localModel;
     }
 
-    public IEnumerable<T> GenerateMultiple(int count = 1)
+    public IList<T> GenerateList(int count = 1)
     {
-        var generated = new List<T>();
         for (var i = 0; i < count; i++)
         {
-            generated.Add(GenerateSingle(Model));
+            _generated.Add(GenerateSingle(Model));
         }
-
-        return generated;
+        return _generated;
     }
+
+    public Faux<T> GenerateMultiple(int count = 1)
+    {
+        _ = GenerateList(count);
+        return this;
+    }
+
+    public string ToJson() => JsonSerializer.Serialize(_generated, _jsonSerializerOptions);
+
+
+    public IEnumerable<T> GetGenerated() => _generated;
 
 
     private void GenerateRandomValues<TVal>(TVal model, PropertyInfo prop)
@@ -110,7 +142,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
         switch (Type.GetTypeCode(type))
         {
             case TypeCode.String:
-                return StringGenerator.Generate(options!.StringLength);
+                return StringGenerator.Generate(_options!.StringLength);
             case TypeCode.Empty:
                 break;
             case TypeCode.Object:
@@ -122,7 +154,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
                     var val = type.GetGenericArguments()[1];
                     if (key == null) return coll;
                     {
-                        for (var i = 0; i < options!.InnerListLength; i++)
+                        for (var i = 0; i < _options!.InnerListLength; i++)
                         {
                             var k = GenerateFromType(key);
                             var v = GenerateFromType(val);
@@ -137,7 +169,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
                     var coll = Activator.CreateInstance(type);
                     var add = GetAddMethod(type, 1);
                     var genType = type.GetGenericArguments().FirstOrDefault();
-                    for (var i = 0; i < options!.InnerListLength; i++)
+                    for (var i = 0; i < _options!.InnerListLength; i++)
                     { 
                         if(genType != null)
                             add.Invoke(coll, [GenerateFromType(genType)]);
@@ -160,7 +192,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
             case TypeCode.UInt16:
                 return NumberGenerator.GenerateUShort();
             case TypeCode.Int32:
-                return NumberGenerator.GenerateInt(options!.IntRange[0], options!.IntRange[1]);
+                return NumberGenerator.GenerateInt(_options!.IntRange[0], _options!.IntRange[1]);
             case TypeCode.UInt32:
                 return NumberGenerator.GenerateUInt();
             case TypeCode.Int64:

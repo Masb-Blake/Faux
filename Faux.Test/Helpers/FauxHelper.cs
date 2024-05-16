@@ -5,6 +5,6 @@ public static class FauxHelper
 {
      public static IEnumerable<T> GenerateFaux<T>() where T : new()
     {
-        return new Faux<T>(new T()).GenerateMultiple();
+        return new Faux<T>(new T()).GenerateList();
     }
 }
