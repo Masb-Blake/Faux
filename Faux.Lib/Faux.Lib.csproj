@@ -10,6 +10,7 @@
       <Folder Include="Attributes\" />
       <Folder Include="Enums\" />
       <Folder Include="Handlers\" />
+      <Folder Include="Statements\" />
       <Folder Include="Utils\" />
     </ItemGroup>
 

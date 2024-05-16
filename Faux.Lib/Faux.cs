@@ -1,10 +1,13 @@
 using System.Collections;
+using System.Data;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.Json;
 using Faux.Lib.Exceptions;
 using Faux.Lib.Generators;
 using Faux.Lib.Models;
+using static System.ArgumentException;
+using static System.ArgumentNullException;
 
 namespace Faux.Lib;
 
@@ -13,8 +16,9 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
 {
     private T Model { get; } = model;
     private readonly FauxOptions? _options = options ?? new FauxOptions();
-    private readonly List<Withs> _withs = [];
-    private readonly List<Sets> _sets = [];
+    private readonly List<Ignore> _ignores = [];
+    private readonly List<With> _withs = [];
+    private readonly List<Set> _sets = [];
     private readonly List<T> _generated = [];
 
     private readonly JsonSerializerOptions _jsonSerializerOptions = new()
@@ -22,25 +26,36 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true
     };
+
+    public Faux<T> With<TR>(Expression<Func<T, TR>> property)
+    {
+        ThrowIfNull(property);
+
+        var propertyInfo = GetPropertyInfo(property);
+        ValidatePropertyInfo(propertyInfo);
+         
+         _ignores.Add(new Ignore
+         {
+             PropertyName = propertyInfo.Name,
+             PropertyId = propertyInfo.MetadataToken
+         });
+         return this;
+    }
     
     public Faux<T> With<TR>(Expression<Func<T, TR>> property, Delegate func, params object[] args)
     {
 
-         ArgumentNullException.ThrowIfNull(nameof(property));
-         ArgumentNullException.ThrowIfNull(func);
-         
-         var propertyInfo = ((MemberExpression)property.Body).Member as PropertyInfo;
-         
-         ArgumentNullException.ThrowIfNull(propertyInfo);
-         ArgumentException.ThrowIfNullOrWhiteSpace(propertyInfo.Name);
+         ThrowIfNull(nameof(property));
+         ThrowIfNull(func);
 
-         if (_sets.FirstOrDefault(v => v.PropertyName == propertyInfo.Name && v.PropertyId == propertyInfo.MetadataToken) != null)
-         {
-             throw new DuplicateStatementException(
-                 $"Cannot declare a with statement for property: {property.Name} due to it already being set");
-         }
+         var propertyInfo = GetPropertyInfo(property);
+         
+         ThrowIfNull(propertyInfo);
+         ThrowIfNullOrWhiteSpace(propertyInfo.Name);
 
-         _withs.Add(new Withs
+         CheckSets(propertyInfo);
+
+         _withs.Add(new With
          {
              PropertyName = propertyInfo.Name,
              PropertyId = propertyInfo.MetadataToken,
@@ -52,22 +67,15 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
 
     public Faux<T> Set<TR>(Expression<Func<T, TR>> property, TR val)
     {
-        ArgumentNullException.ThrowIfNull(property);
-        ArgumentNullException.ThrowIfNull(val);
+        ThrowIfNull(property);
+        ThrowIfNull(val);
         
-        var propertyInfo = ((MemberExpression)property.Body).Member as PropertyInfo;
+        var propertyInfo = GetPropertyInfo(property);
+        ValidatePropertyInfo(propertyInfo);
         
-        ArgumentNullException.ThrowIfNull(propertyInfo);
-        ArgumentException.ThrowIfNullOrWhiteSpace(propertyInfo.Name);
-
-        if (_withs.FirstOrDefault(
-                v => v.PropertyName == propertyInfo.Name && v.PropertyId == propertyInfo.MetadataToken) != null)
-        {
-            throw new DuplicateStatementException(
-                             $"Cannot declare a with statement for property: {property.Name} due to it already being set");
-        }
+        CheckWiths(propertyInfo);
         
-        _sets.Add(new Sets
+        _sets.Add(new Set
         {
             PropertyName = propertyInfo.Name,
             PropertyId = propertyInfo.MetadataToken,
@@ -75,6 +83,55 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
         });
         return this;
     }
+
+    public Faux<T> Set<TR>(Expression<Func<T, TR[]>> properties, TR val)
+    {
+        var expressions = (IEnumerable<Expression>)((NewArrayExpression)properties.Body).Expressions;
+        foreach (var expression in expressions)
+        {
+            var propertyInfo = GetPropertyInfo(expression);
+            ValidatePropertyInfo(propertyInfo);
+            CheckWiths(propertyInfo);
+            
+            _sets.Add(new Set
+            {
+                PropertyName = propertyInfo.Name,
+                PropertyId = propertyInfo.MetadataToken,
+                Value = val!
+            });
+            
+        }
+        return this;
+    }
+
+    public Faux<T> Set<TR>(Expression<Func<T, TR[]>> properties, TR[] vals)
+    {
+        ThrowIfNull(properties);
+        ThrowIfNull(vals);
+        var expressions = (IEnumerable<Expression>)((NewArrayExpression)properties.Body).Expressions;
+        var enumerable = expressions.ToList();
+        if (vals.Length != enumerable.Count)
+            throw new ConstraintException(
+                $"Value count must match expression count: {enumerable.Count} properties, {vals.Length} values");
+        var index = 0;
+        foreach (var propertyInfo in enumerable.Select(GetPropertyInfo))
+        {
+            ValidatePropertyInfo(propertyInfo);
+            CheckWiths(propertyInfo);
+            
+            _sets.Add(new Set
+            {
+                PropertyName = propertyInfo.Name,
+                PropertyId = propertyInfo.MetadataToken,
+                Value = vals[index]!
+            });
+            index++;
+        }
+        return this;
+    }
+
+    public Faux<T> Set<TR>(Expression<Func<T, TR[]>> properties, IEnumerable<TR> vals) =>
+        Set(properties, vals.ToArray());
     
     
     public TVal GenerateSingle<TVal>(TVal val) where TVal : new()
@@ -84,6 +141,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
             foreach (var prop in props)
             {
                 if (!prop.CanWrite) continue;
+                if (IsIgnored(prop)) continue;
                 var setVal =
                     _sets.FirstOrDefault(s => s.PropertyId == prop.MetadataToken && s.PropertyName == prop.Name);
                 if (setVal != null)
@@ -213,6 +271,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
 
         return null;
     }
+    
 
     private static MethodInfo GetAddMethod(Type type, int paramCount)
     {
@@ -228,14 +287,50 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
         };
     }
 
+    private static PropertyInfo GetPropertyInfo(Expression expression)
+    {
+        ThrowIfNull(expression);
+        return (((MemberExpression)expression).Member as PropertyInfo)!;
+    }
+
     private static MethodInfo GetMethod(MethodInfo[] methods, string method, int paramCount = 1)
     {
-        ArgumentNullException.ThrowIfNull(methods);
-        ArgumentException.ThrowIfNullOrWhiteSpace(method);
+        ThrowIfNull(methods);
+        ThrowIfNullOrWhiteSpace(method);
         
         if (paramCount <= 0)
             throw new InvalidOperationException(nameof(paramCount));
         
         return methods.FirstOrDefault(n => n.Name == method && n.GetParameters().Length == paramCount)!;
     }
+
+    private void CheckWiths(PropertyInfo propertyInfo)
+    {
+        if (_withs.Any(
+                v => v.PropertyName == propertyInfo.Name && v.PropertyId == propertyInfo.MetadataToken))
+        {
+            throw new DuplicateStatementException(
+                             $"Cannot declare a with statement for property: {propertyInfo.Name} due to it already being set");
+        }
+    }
+
+    private void CheckSets(PropertyInfo propertyInfo)
+    {
+        if (_sets.Any(v => v.PropertyId == propertyInfo.MetadataToken && v.PropertyName == propertyInfo.Name))
+        {
+            throw new DuplicateStatementException(
+                                         $"Cannot declare a with statement for property: {propertyInfo.Name} due to it already being set");
+        }
+    }
+    
+    private void ValidatePropertyInfo(PropertyInfo propertyInfo) 
+    {
+        
+            ThrowIfNull(propertyInfo);
+            ThrowIfNullOrWhiteSpace(propertyInfo.Name);
+    }
+
+    private bool IsIgnored(PropertyInfo propertyInfo) => _ignores.Any(v =>
+        v.PropertyName == propertyInfo.Name && v.PropertyId == propertyInfo.MetadataToken);
+
 }

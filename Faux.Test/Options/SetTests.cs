@@ -43,6 +43,23 @@ public class SetTests
             Assert.That(generated.Object.Name, Is.EqualTo("Test"));
         });
     }
+
+    [Test]
+    public void TestMultipleSets()
+    {
+        var setClass = new SetClass();
+        var faux = new Faux<SetClass>(setClass);
+        var generated = faux.Set(n => new[] {n.Last, n.Name}, "Test")
+            .GenerateList()
+            .FirstOrDefault();
+        Assert.That(generated, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(generated.Last, Is.EqualTo("Test"));
+            Assert.That(generated.Name, Is.EqualTo("Test"));
+        });
+        
+    }
     
     [Test]
     public void TestSetDuplicateStatementException()

@@ -1,6 +1,6 @@
 namespace Faux.Lib.Models;
 
-public class Sets : FauxPropertyInfo
+public class Set : FauxPropertyInfo
 {
     public object Value { get; set; }
 
