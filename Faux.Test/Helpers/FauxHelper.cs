@@ -1,5 +1,5 @@
-namespace Faux.Test.Helpers;
 using Faux.Lib;
+namespace Faux.Test.Helpers;
 
 public static class FauxHelper
 {

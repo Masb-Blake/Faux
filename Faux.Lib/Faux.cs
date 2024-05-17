@@ -31,7 +31,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
     {
         ThrowIfNull(property);
 
-        var propertyInfo = GetPropertyInfo(property);
+        var propertyInfo = GetPropertyInfo(property.Body);
         ValidatePropertyInfo(propertyInfo);
          
          _ignores.Add(new Ignore
@@ -48,7 +48,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
          ThrowIfNull(nameof(property));
          ThrowIfNull(func);
 
-         var propertyInfo = GetPropertyInfo(property);
+         var propertyInfo = GetPropertyInfo(property.Body);
          
          ThrowIfNull(propertyInfo);
          ThrowIfNullOrWhiteSpace(propertyInfo.Name);
@@ -70,7 +70,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
         ThrowIfNull(property);
         ThrowIfNull(val);
         
-        var propertyInfo = GetPropertyInfo(property);
+        var propertyInfo = GetPropertyInfo(property.Body);
         ValidatePropertyInfo(propertyInfo);
         
         CheckWiths(propertyInfo);
@@ -323,7 +323,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
         }
     }
     
-    private void ValidatePropertyInfo(PropertyInfo propertyInfo) 
+    private static void ValidatePropertyInfo(PropertyInfo propertyInfo) 
     {
         
             ThrowIfNull(propertyInfo);

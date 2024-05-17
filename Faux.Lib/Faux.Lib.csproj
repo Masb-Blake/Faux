@@ -4,6 +4,12 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <Version>0.0.1</Version>
+        <Title>Faux</Title>
+        <Description>Generates different objects for mock testing and mock DB entries.</Description>
+        <RepositoryUrl>https://github.com/Masb-Blake/Faux</RepositoryUrl>
+        <PackageReleaseNotes>Inital implementaion for support to basic objects</PackageReleaseNotes>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     </PropertyGroup>
 
     <ItemGroup>
@@ -12,6 +18,10 @@
       <Folder Include="Handlers\" />
       <Folder Include="Statements\" />
       <Folder Include="Utils\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="nuget.config" />
     </ItemGroup>
 
 </Project>
