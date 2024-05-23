@@ -1,6 +1,3 @@
 namespace Faux.Lib.Models;
 
-public class Ignore : FauxPropertyInfo
-{
-    
-}
+public class Ignore : FauxPropertyInfo;

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.ObjectModel;
 using System.Data;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -21,30 +22,8 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
     private readonly List<Set> _sets = [];
     private readonly List<T> _generated = [];
 
-    private readonly JsonSerializerOptions _jsonSerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true
-    };
-
-    public Faux<T> With<TR>(Expression<Func<T, TR>> property)
-    {
-        ThrowIfNull(property);
-
-        var propertyInfo = GetPropertyInfo(property.Body);
-        ValidatePropertyInfo(propertyInfo);
-         
-         _ignores.Add(new Ignore
-         {
-             PropertyName = propertyInfo.Name,
-             PropertyId = propertyInfo.MetadataToken
-         });
-         return this;
-    }
-    
     public Faux<T> With<TR>(Expression<Func<T, TR>> property, Delegate func, params object[] args)
     {
-
          ThrowIfNull(nameof(property));
          ThrowIfNull(func);
 
@@ -65,6 +44,68 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
          return this;
     }
 
+    public Faux<T> With<TR>(Expression<Func<T, TR[]>> properties, Delegate func, params object[] args)
+    {
+        ThrowIfNull(properties);
+        ThrowIfNull(func);
+
+        var expressions = GetExpressions(properties);
+        ThrowIfNull(expressions);
+
+        foreach (var expression in expressions)
+        {
+            var propertyInfo = GetPropertyInfo(expression);
+            ValidatePropertyInfo(propertyInfo);
+            CheckSets(propertyInfo);
+            
+            _withs.Add(new With()
+            {
+                Args = args,
+                Function = func,
+                PropertyId = propertyInfo.MetadataToken,
+                PropertyName = propertyInfo.Name
+            });
+        }
+
+        return this;
+    }
+
+    public Faux<T> With<TR>(Expression<Func<T, TR[]>> properties, FauxWith[] functions)
+    {
+        ThrowIfNull(properties);
+        ThrowIfNull(functions);
+
+        var expressions = GetExpressions(properties);
+        ThrowIfNull(expressions);
+        
+        if(functions.Length != expressions.Count)
+            throw new ConstraintException(
+                $"Value count must match expression count: {expressions.Count} properties, {functions.Length} values");
+
+        var index = 0;
+        foreach (var expression in expressions)
+        {
+            var propertyInfo = GetPropertyInfo(expression);
+            ValidatePropertyInfo(propertyInfo);
+            
+            CheckSets(propertyInfo);
+            
+            _withs.Add(new With
+            {
+                PropertyName = propertyInfo.Name,
+                PropertyId = propertyInfo.MetadataToken,
+                Function = functions[index].Function,
+                Args = functions[index].Args
+            });
+            index++;
+        }
+
+        return this;
+    }
+    
+    public Faux<T> With<TR>(Expression<Func<T, TR[]>> properties, IEnumerable<FauxWith> functions) =>
+        With(properties, functions.ToArray());
+    
     public Faux<T> Set<TR>(Expression<Func<T, TR>> property, TR val)
     {
         ThrowIfNull(property);
@@ -86,7 +127,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
 
     public Faux<T> Set<TR>(Expression<Func<T, TR[]>> properties, TR val)
     {
-        var expressions = (IEnumerable<Expression>)((NewArrayExpression)properties.Body).Expressions;
+        var expressions = GetExpressions(properties);
         foreach (var expression in expressions)
         {
             var propertyInfo = GetPropertyInfo(expression);
@@ -108,7 +149,7 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
     {
         ThrowIfNull(properties);
         ThrowIfNull(vals);
-        var expressions = (IEnumerable<Expression>)((NewArrayExpression)properties.Body).Expressions;
+        var expressions = GetExpressions(properties);
         var enumerable = expressions.ToList();
         if (vals.Length != enumerable.Count)
             throw new ConstraintException(
@@ -132,6 +173,44 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
 
     public Faux<T> Set<TR>(Expression<Func<T, TR[]>> properties, IEnumerable<TR> vals) =>
         Set(properties, vals.ToArray());
+
+
+    public Faux<T> Ignore<TR>(Expression<Func<T, TR>> property)
+    {
+        ThrowIfNull(property);
+        var propertyInfo = GetPropertyInfo(property);
+        ValidatePropertyInfo(propertyInfo);
+        CheckSets(propertyInfo);
+        CheckWiths(propertyInfo);
+        _ignores.Add(new Ignore
+        {
+            PropertyId = propertyInfo.MetadataToken,
+            PropertyName = propertyInfo.Name
+        });
+        return this;
+    }
+    
+    public Faux<T> Ignore<TR>(Expression<Func<T, TR[]>> properties) 
+    {
+        ThrowIfNull(properties);
+        var expressions = GetExpressions(properties);
+        ThrowIfNull(expressions);
+        foreach (var expression in expressions)
+        {
+            var propertyInfo = GetPropertyInfo(expression);
+            ValidatePropertyInfo(propertyInfo);
+            CheckSets(propertyInfo);
+            CheckWiths(propertyInfo);
+            
+            _ignores.Add(new Ignore
+            {
+               PropertyId = propertyInfo.MetadataToken,
+               PropertyName = propertyInfo.Name
+            });
+        }
+
+        return this;
+    }
     
     
     public TVal GenerateSingle<TVal>(TVal val) where TVal : new()
@@ -183,11 +262,9 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
         return this;
     }
 
-    public string ToJson() => JsonSerializer.Serialize(_generated, _jsonSerializerOptions);
-
+    public string ToJson() => JsonSerializer.Serialize(_generated, _options!.JsonOptions);
 
     public IEnumerable<T> GetGenerated() => _generated;
-
 
     private void GenerateRandomValues<TVal>(TVal model, PropertyInfo prop)
     {
@@ -271,7 +348,6 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
 
         return null;
     }
-    
 
     private static MethodInfo GetAddMethod(Type type, int paramCount)
     {
@@ -310,7 +386,8 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
                 v => v.PropertyName == propertyInfo.Name && v.PropertyId == propertyInfo.MetadataToken))
         {
             throw new DuplicateStatementException(
-                             $"Cannot declare a with statement for property: {propertyInfo.Name} due to it already being set");
+                             $"Cannot declare a set statement for property: {propertyInfo.Name} " +
+                             $"due to it already being bound to a function");
         }
     }
 
@@ -319,18 +396,22 @@ public class Faux<T>(T model, FauxOptions? options = null) : IFaux
         if (_sets.Any(v => v.PropertyId == propertyInfo.MetadataToken && v.PropertyName == propertyInfo.Name))
         {
             throw new DuplicateStatementException(
-                                         $"Cannot declare a with statement for property: {propertyInfo.Name} due to it already being set");
+                                         $"Cannot declare a with statement for property: {propertyInfo.Name} " +
+                                         $"due to it already being set");
         }
     }
     
     private static void ValidatePropertyInfo(PropertyInfo propertyInfo) 
     {
-        
             ThrowIfNull(propertyInfo);
             ThrowIfNullOrWhiteSpace(propertyInfo.Name);
     }
 
     private bool IsIgnored(PropertyInfo propertyInfo) => _ignores.Any(v =>
         v.PropertyName == propertyInfo.Name && v.PropertyId == propertyInfo.MetadataToken);
+
+    private static ReadOnlyCollection<Expression> GetExpressions<TR>(Expression<Func<T, TR[]>> properties) => 
+        ((NewArrayExpression)properties.Body).Expressions;
+
 
 }
